@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<manifest>
+  <!-- Device manifest for Redmi Note 10s (rosemary/secret) -->
+  <!-- Using official LineageOS repositories with lineage-23.0 kernel -->
+  
+  <remote name="lineage"
+          fetch="https://github.com/LineageOS/"
+          sync-c="true"
+          sync-j="4"
+          revision="lineage-23.0" />
+
+  <!-- Device Tree -->
+  <!-- Official LineageOS device tree for rosemary -->
+  <project path="device/xiaomi/rosemary"
+           name="android_device_xiaomi_rosemary"
+           remote="lineage"
+           revision="lineage-23.0" />
+
+  <!-- Device Common Tree -->
+  <!-- Will be automatically pulled by lineage.dependencies from device tree -->
+  <project path="device/xiaomi/mt6785-common"
+           name="android_device_xiaomi_mt6785-common"
+           remote="lineage"
+           revision="lineage-23.0" />
+
+  <!-- Kernel -->
+  <!-- Official LineageOS 23.0 kernel for MT6785 -->
+  <project path="kernel/xiaomi/mt6785"
+           name="android_kernel_xiaomi_mt6785"
+           remote="lineage"
+           revision="lineage-23.0"
+           clone-depth="1" />
+
+  <!-- Vendor Blobs -->
+  <!-- Will be automatically pulled by lineage.dependencies from device tree -->
+  <project path="vendor/xiaomi/rosemary"
+           name="proprietary_vendor_xiaomi_rosemary"
+           remote="lineage"
+           revision="lineage-23.0" />
+
+  <!-- Vendor Common Blobs -->
+  <project path="vendor/xiaomi/mt6785-common"
+           name="proprietary_vendor_xiaomi_mt6785-common"
+           remote="lineage"
+           revision="lineage-23.0" />
+
+  <!-- Hardware specific repositories -->
+  <!-- MediaTek Hardware -->
+  <project path="hardware/mediatek"
+           name="android_hardware_mediatek"
+           remote="lineage"
+           revision="lineage-23.0" />
+
+  <!-- IMS (VoLTE/VoWiFi) -->
+  <project path="vendor/mediatek/ims"
+           name="android_vendor_mediatek_ims"
+           remote="lineage"
+           revision="lineage-23.0" />
+
+  <!-- IMS Common -->
+  <project path="vendor/mediatek/ims-common"
+           name="android_vendor_mediatek_ims-common"
+           remote="lineage"
+           revision="lineage-23.0" />
+
+</manifest>
+

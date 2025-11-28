@@ -1,0 +1,265 @@
+name: Build Evolution X for Redmi Note 10s (rosemary)
+
+on:
+  workflow_dispatch:
+    inputs:
+      DEVICE_NAME:
+        description: 'Device codename'
+        required: true
+        default: 'rosemary'
+        type: string
+      BUILD_TYPE:
+        description: 'Build type'
+        required: true
+        default: 'userdebug'
+        type: choice
+        options:
+          - userdebug
+          - user
+          - eng
+      CLEAN_BUILD:
+        description: 'Clean build (make clean)'
+        required: false
+        default: false
+        type: boolean
+      UPLOAD_TO_RELEASE:
+        description: 'Upload build to GitHub Releases'
+        required: false
+        default: true
+        type: boolean
+
+env:
+  MANIFEST_URL: 'https://github.com/Evolution-X/manifest'
+  MANIFEST_BRANCH: 'bka'
+  DEVICE_NAME: ${{ github.event.inputs.DEVICE_NAME || 'rosemary' }}
+  BUILD_TYPE: ${{ github.event.inputs.BUILD_TYPE || 'userdebug' }}
+  TARGET_NAME: lineage_${{ github.event.inputs.DEVICE_NAME || 'rosemary' }}-bp2a-${{ github.event.inputs.BUILD_TYPE || 'userdebug' }}
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 720  # 12 hours timeout
+    
+    steps:
+      - name: Checkout manifest repository
+        uses: actions/checkout@v4
+        with:
+          path: manifest
+
+      - name: Set up environment variables
+        run: |
+          echo "BUILD_DATE=$(date +%Y%m%d)" >> $GITHUB_ENV
+          echo "BUILD_TIME=$(date +%H%M%S)" >> $GITHUB_ENV
+          echo "ROM_NAME=EvolutionX-8.0-${DEVICE_NAME}-${BUILD_TYPE}-$(date +%Y%m%d)" >> $GITHUB_ENV
+
+      - name: Display build information
+        run: |
+          echo "=========================================="
+          echo "Building Evolution X"
+          echo "=========================================="
+          echo "Device: ${DEVICE_NAME}"
+          echo "Build Type: ${BUILD_TYPE}"
+          echo "Manifest: ${MANIFEST_URL}"
+          echo "Branch: ${MANIFEST_BRANCH}"
+          echo "Clean Build: ${{ github.event.inputs.CLEAN_BUILD }}"
+          echo "=========================================="
+
+      - name: Set up swap space
+        uses: pierotofy/set-swap-space@master
+        with:
+          swap-size-gb: 12
+
+      - name: Free up disk space
+        run: |
+          echo "Disk space before cleanup:"
+          df -h
+          
+          # Remove unnecessary packages and files
+          sudo apt-get remove -y '^dotnet-.*' '^llvm-.*' 'php.*' '^mongodb-.*' '^mysql-.*' azure-cli google-cloud-sdk google-chrome-stable firefox powershell mono-devel libgl1-mesa-dri || true
+          sudo apt-get autoremove -y
+          sudo apt-get clean
+          
+          # Remove large directories
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL /usr/local/share/boost /usr/share/swift || true
+          sudo rm -rf /usr/local/graalvm/ /usr/local/.ghcup/ /usr/local/share/powershell /usr/local/share/chromium /usr/local/lib/node_modules || true
+          
+          # Remove Docker images
+          docker rmi $(docker image ls -aq) || true
+          
+          echo "Disk space after cleanup:"
+          df -h
+
+      - name: Install required packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bc bison build-essential ccache curl flex \
+            g++-multilib gcc-multilib git git-lfs gnupg gperf imagemagick \
+            lib32ncurses-dev lib32readline-dev lib32z1-dev libelf-dev \
+            liblz4-tool libncurses5 libncurses5-dev libsdl1.2-dev \
+            libssl-dev libxml2 libxml2-utils lzop pngcrush rsync schedtool \
+            squashfs-tools xsltproc zip zlib1g-dev python3 python3-pip \
+            python-is-python3 openjdk-11-jdk android-sdk-libsparse-utils \
+            android-sdk-ext4-utils brotli liblz4-tool libprotobuf-dev \
+            protobuf-compiler
+
+      - name: Set up Git configuration
+        run: |
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "actions@github.com"
+          git config --global color.ui false
+
+      - name: Install repo tool
+        run: |
+          mkdir -p ~/bin
+          curl https://storage.googleapis.com/git-repo-downloads/repo > ~/bin/repo
+          chmod a+x ~/bin/repo
+          echo "$HOME/bin" >> $GITHUB_PATH
+
+      - name: Set up ccache
+        run: |
+          echo "CCACHE_DIR=$HOME/.ccache" >> $GITHUB_ENV
+          echo "CCACHE_EXEC=/usr/bin/ccache" >> $GITHUB_ENV
+          echo "USE_CCACHE=1" >> $GITHUB_ENV
+          ccache -M 50G
+          ccache -o compression=true
+          ccache -z
+
+      - name: Initialize repo
+        working-directory: ${{ github.workspace }}
+        run: |
+          mkdir -p evolution
+          cd evolution
+          repo init -u ${MANIFEST_URL} -b ${MANIFEST_BRANCH} --git-lfs --depth=1
+          
+      - name: Add local manifest
+        run: |
+          mkdir -p evolution/.repo/local_manifests
+          cp manifest/rosemary.xml evolution/.repo/local_manifests/
+
+      - name: Sync source code
+        working-directory: ${{ github.workspace }}/evolution
+        run: |
+          repo sync -c -j$(nproc --all) --force-sync --no-clone-bundle --no-tags --optimized-fetch --prune
+
+      - name: Apply patches (if any)
+        working-directory: ${{ github.workspace }}/evolution
+        run: |
+          # Add your custom patches here if needed
+          # Example:
+          # cd frameworks/base
+          # git apply ${{ github.workspace }}/manifest/patches/frameworks_base.patch
+          echo "No patches to apply"
+
+      - name: Set up build environment
+        working-directory: ${{ github.workspace }}/evolution
+        run: |
+          source build/envsetup.sh
+          lunch ${TARGET_NAME}
+
+      - name: Clean build (if requested)
+        if: ${{ github.event.inputs.CLEAN_BUILD == 'true' }}
+        working-directory: ${{ github.workspace }}/evolution
+        run: |
+          source build/envsetup.sh
+          make clean
+
+      - name: Build ROM
+        working-directory: ${{ github.workspace }}/evolution
+        run: |
+          source build/envsetup.sh
+          lunch ${TARGET_NAME}
+          
+          # Start building
+          m evolution -j$(nproc --all) 2>&1 | tee build.log
+
+      - name: Check build output
+        working-directory: ${{ github.workspace }}/evolution
+        run: |
+          if [ -f out/target/product/${DEVICE_NAME}/Evolution*.zip ]; then
+            echo "BUILD_SUCCESS=true" >> $GITHUB_ENV
+            echo "ROM_PATH=$(find out/target/product/${DEVICE_NAME}/ -name 'Evolution*.zip' | head -n 1)" >> $GITHUB_ENV
+            echo "ROM_FILE=$(basename $(find out/target/product/${DEVICE_NAME}/ -name 'Evolution*.zip' | head -n 1))" >> $GITHUB_ENV
+          else
+            echo "BUILD_SUCCESS=false" >> $GITHUB_ENV
+            echo "Build failed! ROM zip not found."
+            exit 1
+          fi
+
+      - name: Display ccache statistics
+        run: ccache -s
+
+      - name: Generate build info
+        if: env.BUILD_SUCCESS == 'true'
+        working-directory: ${{ github.workspace }}/evolution
+        run: |
+          ROM_SIZE=$(du -h "${ROM_PATH}" | cut -f1)
+          ROM_MD5=$(md5sum "${ROM_PATH}" | cut -d' ' -f1)
+          ROM_SHA256=$(sha256sum "${ROM_PATH}" | cut -d' ' -f1)
+          
+          cat > build-info.txt <<EOF
+          Evolution X Build Information
+          ==============================
+          Device: ${DEVICE_NAME}
+          Build Type: ${BUILD_TYPE}
+          Build Date: ${BUILD_DATE}
+          Build Time: ${BUILD_TIME}
+          ROM Size: ${ROM_SIZE}
+          
+          Checksums:
+          MD5: ${ROM_MD5}
+          SHA256: ${ROM_SHA256}
+          
+          ROM File: ${ROM_FILE}
+          ==============================
+          EOF
+          
+          cat build-info.txt
+
+      - name: Upload ROM to artifacts
+        if: env.BUILD_SUCCESS == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.ROM_NAME }}
+          path: |
+            ${{ env.ROM_PATH }}
+            ${{ github.workspace }}/evolution/build-info.txt
+          retention-days: 7
+          compression-level: 0  # Don't compress already compressed ZIP
+
+      - name: Upload build log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log-failure-${{ env.BUILD_DATE }}
+          path: ${{ github.workspace }}/evolution/build.log
+          retention-days: 14
+
+      - name: Create GitHub Release
+        if: env.BUILD_SUCCESS == 'true' && github.event.inputs.UPLOAD_TO_RELEASE == 'true'
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ env.ROM_NAME }}
+          name: Evolution X - ${{ env.DEVICE_NAME }} (${{ env.BUILD_DATE }})
+          body_path: ${{ github.workspace }}/evolution/build-info.txt
+          files: ${{ env.ROM_PATH }}
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Send notification
+        if: always()
+        run: |
+          if [ "${{ env.BUILD_SUCCESS }}" == "true" ]; then
+            echo "✅ Build completed successfully!"
+            echo "ROM: ${ROM_FILE}"
+          else
+            echo "❌ Build failed! Check the logs for details."
+          fi
+
+      - name: Cleanup
+        if: always()
+        run: |
+          rm -rf evolution/out
+          rm -rf ~/.ccache
+

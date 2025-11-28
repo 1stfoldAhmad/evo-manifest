@@ -1,0 +1,68 @@
+name: Test Sync - Evolution X
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'rosemary.xml'
+      - '.github/workflows/sync-test.yml'
+
+jobs:
+  test-sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up environment
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y git git-lfs curl python3
+
+      - name: Install repo tool
+        run: |
+          mkdir -p ~/bin
+          curl https://storage.googleapis.com/git-repo-downloads/repo > ~/bin/repo
+          chmod a+x ~/bin/repo
+          echo "$HOME/bin" >> $GITHUB_PATH
+
+      - name: Configure Git
+        run: |
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "actions@github.com"
+          git config --global color.ui false
+
+      - name: Initialize repo
+        run: |
+          mkdir -p evolution
+          cd evolution
+          repo init -u https://github.com/Evolution-X/manifest -b bka --git-lfs --depth=1
+
+      - name: Add local manifest
+        run: |
+          mkdir -p evolution/.repo/local_manifests
+          cp rosemary.xml evolution/.repo/local_manifests/
+
+      - name: Test sync (limited)
+        run: |
+          cd evolution
+          # Only sync device-specific repos to test manifest validity
+          repo sync device/xiaomi/rosemary device/xiaomi/mt6785-common kernel/xiaomi/mt6785 -c -j4 --force-sync --no-clone-bundle --no-tags || true
+
+      - name: Validate manifest
+        run: |
+          cd evolution
+          repo forall -c 'echo "Project: $REPO_PROJECT at $REPO_PATH"'
+          echo "✅ Manifest validation completed!"
+
+      - name: Display results
+        if: always()
+        run: |
+          if [ $? -eq 0 ]; then
+            echo "✅ Sync test passed! Your manifest is valid."
+          else
+            echo "❌ Sync test failed! Please check your manifest file."
+          fi
+

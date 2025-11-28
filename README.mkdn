@@ -1,8 +1,48 @@
 ![Evolution X](https://github.com/Evolution-X/manifest/raw/bka/Banner.png)
 
+# Evolution X Manifest Repository
+
+This repository contains the manifest files for building Evolution X custom ROM.
+
+## 📱 Device-Specific Builds
+
+### Redmi Note 10s (rosemary/secret)
+
+This repository includes a pre-configured setup for building Evolution X with LineageOS 23.0 kernel for the Redmi Note 10s.
+
+**✅ Uses Official LineageOS Repositories** - No custom device trees needed!
+
+**Files included:**
+- `rosemary.xml` - Device manifest using official LineageOS sources
+- `.github/workflows/build-rom.yml` - GitHub Actions workflow for automated builds
+- `.github/workflows/sync-test.yml` - Manifest validation workflow
+- `SIMPLIFIED_START.md` - ⭐ **START HERE** - Easy setup guide
+- `BUILD_GUIDE.md` - Comprehensive building instructions
+- `CUSTOMIZATION.md` - Customization options
+
+**Quick Start:**
+1. ⭐ **Read `SIMPLIFIED_START.md`** - Everything is ready!
+2. Fork this repository
+3. Run GitHub Actions workflow OR build locally
+4. That's it! No device tree setup needed!
+
+**Official Sources:**
+- Device Tree: https://github.com/LineageOS/android_device_xiaomi_rosemary
+- Kernel: https://github.com/LineageOS/android_kernel_xiaomi_mt6785 (lineage-23.0)
+
+---
+
+## 🔧 General Build Instructions
+
 # Initialize local repository
 ```
 repo init -u https://github.com/Evolution-X/manifest -b bka --git-lfs
+```
+
+# Add device manifest (for rosemary)
+```
+mkdir -p .repo/local_manifests
+cp rosemary.xml .repo/local_manifests/
 ```
 
 # Sync up
@@ -19,10 +59,27 @@ repo sync -c -j$(nproc --all) --force-sync --no-clone-bundle --no-tags
 
 - Lunch a target
 ```bash
-lunch lineage_codename-bp2a-userdebug
+lunch lineage_rosemary-bp2a-userdebug
 ```
 
 - To start compiling
 ```bash
 m evolution
 ```
+
+---
+
+## 📚 Additional Documentation
+
+- **BUILD_GUIDE.md** - Detailed build instructions for local and GitHub Actions builds
+- **DEVICE_SETUP.md** - Guide for creating device trees and extracting vendor blobs
+- [Evolution X Official Docs](https://github.com/Evolution-X)
+- [LineageOS Wiki](https://wiki.lineageos.org/)
+
+## 🤝 Contributing
+
+Contributions are welcome! Please read the contributing guidelines before submitting pull requests.
+
+## 📄 License
+
+This project follows Evolution X and LineageOS licensing terms.

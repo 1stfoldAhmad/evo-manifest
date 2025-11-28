@@ -1,0 +1,20 @@
+# IDE files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+*.zip
+*.log
+out/
+
+# Temporary files
+*.tmp
+*.bak
+
